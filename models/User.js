@@ -6,7 +6,7 @@ username: {
   unique: true,
   sparse: true,
   trim: true,
-  minlength: 3
+  minlength: 2
 },
 
   email: {

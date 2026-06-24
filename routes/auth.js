@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import { requireAuth } from "../middleware/authMiddleware.js";
+import { validateRegister, validateLogin } from "../middleware/authValidationMiddleware.js";
 
 const router = express.Router();
 
@@ -21,6 +22,7 @@ const createToken = (user) => {
 const publicUserData = (user) => {
   return {
     id: user._id,
+    username: user.username,
     email: user.email,
     isAdmin: user.isAdmin,
     isActive: user.isActive,
@@ -28,24 +30,18 @@ const publicUserData = (user) => {
   };
 };
 
-router.post("/register", async (req, res) => {
+router.post("/register", validateRegister, async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { username, email, password } = req.body;
+    const existingEmail = await User.findOne({ email });
 
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
+    if (existingEmail) {
+      return res.status(409).json({ message: "This email has already been registered!" });
     }
 
-    if (password.length < 8) {
-      return res.status(400).json({ message: "Password must be at least 8 characters long" });
-    }
-
-    const normalizedEmail = email.trim().toLowerCase();
-
-    const existingUser = await User.findOne({ email: normalizedEmail });
-
-    if (existingUser) {
-      return res.status(409).json({ message: "This email is already registered" });
+    const existingUsername = await User.findOne({ username });
+    if (existingUsername) {
+      return res.status(409).json({ message: "This username is already taken!" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -53,35 +49,34 @@ router.post("/register", async (req, res) => {
     const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase();
 
     const user = await User.create({
-      email: normalizedEmail,
+      username,
+      email,
       password: hashedPassword,
-      isAdmin: normalizedEmail === adminEmail
+      isAdmin: email === adminEmail
     });
 
     const token = createToken(user);
 
     res.status(201).json({
-      message: "Registration successful",
+      message: "Registration successful!",
       token,
       user: publicUserData(user)
     });
   } catch (error) {
     console.error("Register error:", error);
-    res.status(500).json({ message: "Registration failed" });
+    res.status(500).json({ message: "Registration failed!" });
   }
 });
 
-router.post("/login", async (req, res) => {
+
+router.post("/login", validateLogin, async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ message: "Email and password are required" });
     }
-
-    const normalizedEmail = email.trim().toLowerCase();
-
-    const user = await User.findOne({ email: normalizedEmail }).select("+password");
+    const user = await User.findOne({ email }).select("+password");
 
     if (!user) {
       return res.status(401).json({ message: "Invalid email or password" });
