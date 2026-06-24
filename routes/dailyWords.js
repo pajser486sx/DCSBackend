@@ -3,6 +3,52 @@ import DailyWord from "../models/DailyWord.js";
 import { requireAuth, requireAdmin } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+const getUTCDateKey = () => {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(now.getUTCDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+const hashString = (text) => {
+  let hash = 0;
+
+  for (const char of text) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  }
+  return hash;
+};
+
+router.get("/today", async (req, res) => {
+  try {
+    const words = await DailyWord.find().sort({ createdAt: 1 });
+    const dateKey = getUTCDateKey();
+
+    if (words.length === 0) {
+      return res.json({
+        word: "No words found",
+        date: dateKey,
+        dailyWord: null
+      });
+    }
+
+    const index = hashString(dateKey) % words.length;
+    const selectedWord = words[index];
+
+    res.json({
+      _id: selectedWord._id,
+      word: selectedWord.word,
+      createdAt: selectedWord.createdAt,
+      date: dateKey,
+      index
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Error loading today's daily word!" });
+  }
+});
+
 
 router.get("/", async (req, res) => {
   try {
@@ -16,7 +62,6 @@ router.get("/", async (req, res) => {
 router.post("/", requireAuth, requireAdmin, async (req, res) => {
   try {
     const trimmedWord = req.body.word?.trim();
-
     if (!trimmedWord) {
       return res.status(400).json({ message: "Word is required!" });
     }
