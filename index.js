@@ -13,13 +13,9 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// const corsOptions={
-    //origin: [] //frontend koji je na renderu
-//}
-
 app.use(cors({
   origin: [
-    "http://localhost:5173"
+    "https://dailycreature-sketchbook.netlify.app"
   ],
   credentials: true
 }));
